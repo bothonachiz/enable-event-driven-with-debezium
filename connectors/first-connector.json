@@ -1,0 +1,16 @@
+{
+    "name": "first-connector", 
+    "config": {
+        "connector.class": "io.debezium.connector.sqlserver.SqlServerConnector", 
+        "database.hostname": "mssql-server", 
+        "database.port": "1433", 
+        "database.user": "debezium_user", 
+        "database.password": "Debezium@123", 
+        "database.names": "SaleDB",
+        "database.encrypt": "false",
+        "topic.prefix": "debezium.sqlserver",
+        "table.include.list": "dbo.Products", 
+        "schema.history.internal.kafka.bootstrap.servers": "kafka:29092", 
+        "schema.history.internal.kafka.topic": "schema-changes.sqlserver"
+    }
+}
