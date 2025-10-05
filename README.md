@@ -587,3 +587,108 @@ INSERT INTO Customers (FirstName, LastName, PhoneNumber, [Address]) VALUES
 Visit **Kafdrop** (http://localhost:9000) and look for:
 - `debezium.sqlserver.SaleDB.dbo.Customers` - Customers table changes (with operation "c")
 - Address is appear
+
+---
+
+## 🔄 Message Transformations
+
+### Problem: Verbose Messages
+Default Debezium messages include:
+- Complex schema wrapper 
+- Source metadata (binlog position, etc.)
+- Potentially unwanted fields
+
+### Solution: Single Message Transforms (SMT)
+
+**File: `connectors/remove-source-connector.json`**
+
+```json
+{
+    "name": "remove-source-connector",
+    "config": {
+        "connector.class": "io.debezium.connector.sqlserver.SqlServerConnector",
+        "database.hostname": "mssql-server",
+        "database.port": "1433",
+        "database.user": "debezium_user",
+        "database.password": "Debezium@123",
+        "database.names": "SaleDB",
+        "database.encrypt": "false",
+        "topic.prefix": "debezium.sqlserver",
+        "table.include.list": "dbo.Products",
+        "schema.history.internal.kafka.bootstrap.servers": "kafka:29092",
+        "schema.history.internal.kafka.topic": "schema-changes.debezium.tms",
+        "decimal.handling.mode": "double",
+
+        "transforms": "RemoveSourceField",
+        "transforms.RemoveSourceField.type": "org.apache.kafka.connect.transforms.ReplaceField$Value",
+        "transforms.RemoveSourceField.exclude": "source",
+
+        "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "key.converter.schemas.enable": "false",
+        "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "value.converter.schemas.enable": "false"
+    }
+}
+```
+
+### Transform Configuration
+```json
+"transforms": "RemoveSourceField"
+```
+- **Purpose**: Names the transform chain
+- **Multiple**: Can chain multiple transforms
+
+```json
+"transforms.RemoveSourceField.type": "org.apache.kafka.connect.transforms.ReplaceField$Value"
+```
+- **Purpose**: Specifies transform implementation
+- **ReplaceField$Value**: Operates on message payload
+
+```json
+"transforms.RemoveSourceField.exclude": "source"
+```
+- **Purpose**: Fields to exclude from payload
+- **Result**: Removes source metadata
+
+### Converter Configuration
+```json
+"key.converter": "org.apache.kafka.connect.json.JsonConverter",
+"key.converter.schemas.enable": "false"
+```
+- **Purpose**: How message keys are serialized
+- **schemas.enable=false**: Raw JSON without schema wrapper
+
+```json  
+"value.converter": "org.apache.kafka.connect.json.JsonConverter",
+"value.converter.schemas.enable": "false"
+```
+- **Purpose**: How message values are serialized
+- **schemas.enable=false**: Clean JSON payload only
+
+---
+
+## 🔍 Connector Management
+
+### Useful Management API
+
+```bash
+# Connector status
+curl -s http://localhost:8083/connectors/first-connector/status
+
+# Connector configuration
+curl -s http://localhost:8083/connectors/first-connector/config
+
+# Pause connector
+curl -i -X PUT http://localhost:8083/connectors/first-connector/pause
+
+# Resume connector  
+curl -i -X PUT http://localhost:8083/connectors/first-connector/resume
+
+# Restart connector
+curl -i -X POST http://localhost:8083/connectors/first-connector/restart
+
+# Delete connector
+curl -i -X DELETE http://localhost:8083/connectors/first-connector
+```
+
+---

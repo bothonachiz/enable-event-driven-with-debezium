@@ -1,0 +1,26 @@
+{
+    "name": "remove-source-connector",
+    "config": {
+        "connector.class": "io.debezium.connector.sqlserver.SqlServerConnector",
+        "database.hostname": "mssql-server",
+        "database.port": "1433",
+        "database.user": "debezium_user",
+        "database.password": "Debezium@123",
+        "database.names": "SaleDB",
+        "database.encrypt": "false",
+        "topic.prefix": "debezium.sqlserver",
+        "table.include.list": "dbo.Products,dbo.Customers",
+        "schema.history.internal.kafka.bootstrap.servers": "kafka:29092",
+        "schema.history.internal.kafka.topic": "schema-changes.debezium.tms",
+        "decimal.handling.mode": "double",
+
+        "transforms": "RemoveSourceField",
+        "transforms.RemoveSourceField.type": "org.apache.kafka.connect.transforms.ReplaceField$Value",
+        "transforms.RemoveSourceField.exclude": "source",
+
+        "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "key.converter.schemas.enable": "false",
+        "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "value.converter.schemas.enable": "false"
+    }
+}
