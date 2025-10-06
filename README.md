@@ -525,7 +525,12 @@ INSERT INTO Customers (FirstName, LastName, PhoneNumber) VALUES
 ('Sara', 'Rose', '+66985567767');
 ```
 
-View debezium connector logs and look for:
+View debezium connector logs 
+``` bash
+docker logs -f debezium-kafka-connect
+```
+
+and look for:
 ``` log
 2025-10-05T11:28:27,177 INFO   SQL_Server||streaming  Multiple capture instances present for the same table: Capture instance "dbo_Customers" [sourceTableId=SaleDB.dbo.Customers, changeTableId=SaleDB.cdc.dbo_Customers_CT, startLsn=0000002e:00000108:004c, changeTableObjectId=1909581841, stopLsn=0000002e:00001570:004d] and Capture instance "dbo_customers_v2" [sourceTableId=SaleDB.dbo.Customers, changeTableId=SaleDB.cdc.dbo_customers_v2_CT, startLsn=0000002e:00001570:004d, changeTableObjectId=1989582126, stopLsn=NULL]   [io.debezium.connector.sqlserver.SqlServerStreamingChangeEventSource]
 
