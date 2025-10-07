@@ -3,16 +3,8 @@
 
 ### What We'll Build
 ```
-                                        Port 2181
-                                            ↓ 
-                                      ┌─────────────┐
-                                      │  ZooKeeper  │
-                                      │             │
-                                      │             │
-                                      └─────────────┘
-                                            ↑
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   MSSQL     │───▶│  Debezium   │───▶│    Kafka    │───▶│   Kafdrop   │
+│   MSSQL     │───▶│  Debezium   │───▶│    Kafka    │───▶│  Kafbat UI  │
 │  Database   │    │ Connector   │    │   Broker    │    │  (Web UI)   │
 │  (SaleDB)   │    │             │    │             │    │             │
 └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
@@ -25,10 +17,11 @@
 enable-event-driven/
 ├── docker-compose.yml                  # Complete environment
 ├── scripts/
-│   └── init.sql                        # Database initialization  
+│   └── init.sql                        # Database initialization
+│   └── ...                
 ├── connectors/
-│   ├── first-connector/                # Basic connector
-│   └── update-first-connector/         # Basic connector
+│   ├── first-connector.json            # Basic connector
+│   └── ...
 └── README.md                           # Step-by-step guide
 ```
 
@@ -81,13 +74,13 @@ USE SaleDB;
 GO
 
 -- Create example table
-CREATE TABLE Products (
-    Id INT PRIMARY KEY IDENTITY(1,1),
-    ProductName NVARCHAR(100) NOT NULL,
-    Price DECIMAL(10, 2) NOT NULL,
-    Note NVARCHAR(100) NULL,
-    CreatedAt DATETIME DEFAULT GETDATE(),
-    UpdatedAt DATETIME DEFAULT GETDATE()
+CREATE TABLE products (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    product_name NVARCHAR(100) NOT NULL,
+    price DECIMAL(10, 2) NOT NULL,
+    note NVARCHAR(100) NULL,
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE()
 );
 GO
 
@@ -109,16 +102,16 @@ GO
 EXEC sys.sp_cdc_enable_db;
 GO
 
--- Enable CDC on the Products table
+-- Enable CDC on the products table
 EXEC sys.sp_cdc_enable_table
     @source_schema = N'dbo',
-    @source_name = N'Products',
+    @source_name = N'products',
     @role_name = NULL,
     @supports_net_changes = 0;
 GO
 
 -- Insert some sample data
-INSERT INTO Products (ProductName, Price, Note) VALUES 
+INSERT INTO products (product_name, price, note) VALUES 
 ('Product A', 10.00, NULL),
 ('Product B', 20.00, NULL),
 ('Product C', 30.00, 'pre-order item');
@@ -127,13 +120,13 @@ GO
 
 ### Verify Database Setup
 ``` bash
-docker exec mssql-server /opt/mssql-tools18/bin/sqlcmd -S localhost -U debezium_user -P Debezium@123 -Q "USE SaleDB; SELECT * FROM Products;" -C
+docker exec mssql-server /opt/mssql-tools18/bin/sqlcmd -S localhost -U debezium_user -P Debezium@123 -Q "USE SaleDB; SELECT * FROM products;" -C
 ```
 
 **Expected Output:**
 ```
 +----+---------------+--------+----------------+-------------------------+-------------------------+
-| Id | ProductName   | Price  | Note           | CreatedAt               | UpdatedAt               |
+| id | product_name  | price  | note           | created_at              | updated_at              |
 +----+---------------+--------+----------------+-------------------------+-------------------------+
 |  1 | Product A     | 10.00  |                | 2025-10-05 09:10:34.597 | 2025-10-05 09:10:34.597 |
 |  2 | Product B     | 20.00  |                | 2025-10-05 09:10:34.597 | 2025-10-05 09:10:34.597 |
@@ -193,23 +186,23 @@ kafka-console-consumer --topic test-topic \
 
 ---
 
-## 🎮 Step 3: Kafdrop Web UI (Optional but Recommended)
+## 🎮 Step 3: Kafbat UI (Optional but Recommended)
 
-### Start Kafdrop
+### Start Kafbat UI
 ```bash
-# Start Kafdrop for web-based Kafka monitoring
-docker compose up --build -d kafdrop
+# Start Kafbat UI for web-based Kafka monitoring
+docker compose up --build -d kafka-ui
 ```
 
 ### Access Web Interface
-- **URL**: http://localhost:9000
+- **URL**: http://localhost:8080/
 - **Features**:
   - Browse topics and partitions
   - View messages in real-time
   - Monitor consumer groups
   - Inspect message schemas
 
-### Kafdrop Interface Tour
+### Kafka UI Interface Tour
 1. **Topics List**: See all Kafka topics
 2. **Topic Details**: Message count, partitions
 3. **Message Browser**: View actual message content
@@ -276,11 +269,11 @@ docker exec kafka kafka-broker-api-versions --bootstrap-server localhost:9092
 # Connect cluster health
 curl -s http://localhost:8083/connector-plugins | jq length
 
-# Kafdrop accessibility
-curl -s http://localhost:9000 | grep -q "Kafdrop"
+# Kafka UI accessibility
+curl -s http://localhost:8080/ | grep -q "Kafbat"
 ```
 
-**Note**: We haven't created the Debezium connector yet, so this change won't appear in Kafka topics. We'll do that in the next section!
+**note**: We haven't created the Debezium connector yet, so this change won't appear in Kafka topics. We'll do that in the next section!
 
 ---
 
@@ -300,7 +293,7 @@ curl -s http://localhost:9000 | grep -q "Kafdrop"
         "database.names": "SaleDB",
         "database.encrypt": "false",
         "topic.prefix": "debezium.sqlserver",
-        "table.include.list": "dbo.Products", 
+        "table.include.list": "dbo.products", 
         "schema.history.internal.kafka.bootstrap.servers": "kafka:29092", 
         "schema.history.internal.kafka.topic": "schema-changes.sqlserver"
     }
@@ -324,7 +317,7 @@ curl -s http://localhost:9000 | grep -q "Kafdrop"
 "database.names": "SaleDB"
 ```
 - **Purpose**: Database connection parameters
-- **Note**: User must have replication privileges
+- **note**: User must have replication privileges
 
 ```json
 "database.encrypt": "false"
@@ -335,11 +328,11 @@ curl -s http://localhost:9000 | grep -q "Kafdrop"
 "topic.prefix": "debezium.sqlserver"
 ```
 - **Purpose**: Prefix for Kafka topic names
-- **Result**: Topics like `debezium.sqlserver.SaleDB.dbo.Products`
+- **Result**: Topics like `debezium.sqlserver.SaleDB.dbo.products`
 
 ### Data Selection
 ```json
-"table.include.list": "dbo.Products"
+"table.include.list": "dbo.products"
 ```
 - **Purpose**: Databases to capture changes from
 - **Alternative**: `table.exclude.list` for exclusion
@@ -397,8 +390,8 @@ curl -s http://localhost:8083/connectors | jq
 ```
 
 ### Step 9: Check Generated Topics
-Visit **Kafdrop** (http://localhost:9000) and look for:
-- `debezium.sqlserver.SaleDB.dbo.Products` - Products table changes
+Visit **kafka-ui** (http://localhost:8080/) and look for:
+- `debezium.sqlserver.SaleDB.dbo.products` - products table changes
 - `schema-changes.sqlserver` - Schema evolution history
 - `enable_event_driven_connect_offsets` - Snapshot latest Log Sequence Number (lsn)
 
@@ -409,20 +402,20 @@ Visit **Kafdrop** (http://localhost:9000) and look for:
 ### Test 1: INSERT Operation
 ``` sql
 -- Insert new row
-INSERT INTO dbo.Products (ProductName, Price) VALUES ('Product D', 199.00);
+INSERT INTO dbo.products (product_name, price) VALUES ('Product D', 199.00);
 ```
 
-Visit **Kafdrop** (http://localhost:9000) and look for:
-- `debezium.sqlserver.SaleDB.dbo.Products` - Products table changes (with operation "c")
+Visit **kafka-ui** (http://localhost:8080/) and look for:
+- `debezium.sqlserver.SaleDB.dbo.products` - products table changes (with operation "c")
 - `enable_event_driven_connect_offsets` - Latest Log Sequence Number (lsn) was changed!
 
 ``` sql
 -- Insert new row again
-INSERT INTO dbo.Products (ProductName, Price) VALUES ('Product E', 250.00);
+INSERT INTO dbo.products (product_name, price) VALUES ('Product E', 250.00);
 ```
 
-Visit **Kafdrop** again (http://localhost:9000) and look for:
-- `debezium.sqlserver.SaleDB.dbo.Products` - Products table changes (with operation "c")
+Visit **kafka-ui** again (http://localhost:8080/) and look for:
+- `debezium.sqlserver.SaleDB.dbo.products` - products table changes (with operation "c")
 
 ### Test 2: 🤔 What happens if Debezium is down
 
@@ -437,10 +430,10 @@ docker container ls -a | grep debezium-kafka-connect
 
 ``` sql
 -- Insert new row again
-INSERT INTO dbo.Products (ProductName, Price, Note) VALUES ('Product F', 99.00, 'pre-order item');
+INSERT INTO dbo.products (product_name, price, note) VALUES ('Product F', 99.00, 'pre-order item');
 ```
 
-Visit **Kafdrop** again (http://localhost:9000) and look for:
+Visit **kafka-ui** again (http://localhost:8080/) and look for:
 - no changes detected
 
 ``` bash
@@ -448,49 +441,49 @@ Visit **Kafdrop** again (http://localhost:9000) and look for:
 docker compose up --build -d debezium-kafka-connect
 ```
 
-Visit **Kafdrop** again (http://localhost:9000) and look for:
-- `debezium.sqlserver.SaleDB.dbo.Products` - new Products table changes automatically
+Visit **kafka-ui** again (http://localhost:8080/) and look for:
+- `debezium.sqlserver.SaleDB.dbo.products` - new products table changes automatically
 - `enable_event_driven_connect_offsets` - Latest Log Sequence Number (lsn) was changed!
 
 ### Test 3: UPDATE Operation
 
 ``` sql
 -- Update some products
-UPDATE dbo.Products SET Price = 52.00 WHERE Id = 1
+UPDATE dbo.products SET price = 52.00 WHERE id = 1
 ```
 
-Visit **Kafdrop** again (http://localhost:9000) and look for:
-- `debezium.sqlserver.SaleDB.dbo.Products` - Products table changes (with operation "u")
+Visit **kafka-ui** again (http://localhost:8080/) and look for:
+- `debezium.sqlserver.SaleDB.dbo.products` - products table changes (with operation "u")
 
 ### Test 4: DELETE Operation
 
 ``` sql
 -- Delete some products
-DELETE dbo.Products WHERE Price > 100
+DELETE dbo.products WHERE price > 100
 ```
 
-Visit **Kafdrop** again (http://localhost:9000) and look for:
-- `debezium.sqlserver.SaleDB.dbo.Products` - Products table changes (with operation "u")
+Visit **kafka-ui** again (http://localhost:8080/) and look for:
+- `debezium.sqlserver.SaleDB.dbo.products` - products table changes (with operation "u")
 
 ### Test 5: Try to updating connectors
 
 ``` sql
--- Create new table Customers
-CREATE TABLE Customers (
-    Id INT PRIMARY KEY IDENTITY(1,1),
+-- Create new table customers
+CREATE TABLE customers (
+    id INT PRIMARY KEY IDENTITY(1,1),
     FirstName NVARCHAR(50) NOT NULL,
     LastName NVARCHAR(50) NOT NULL,
-    CreatedAt DATETIME DEFAULT GETDATE(),
-    UpdatedAt DATETIME DEFAULT GETDATE()
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE()
 );
 -- Enable cdc for Customer
 EXEC sys.sp_cdc_enable_table
     @source_schema = N'dbo',
-    @source_name = N'Customers',
+    @source_name = N'customers',
     @role_name = NULL,
     @supports_net_changes = 0;
 
-INSERT INTO Customers (FirstName, LastName) VALUES
+INSERT INTO customers (FirstName, LastName) VALUES
 ('John', 'Doe'),
 ('Anna', 'Smith')
 ```
@@ -503,25 +496,25 @@ curl -X DELETE http://localhost:8083/connectors/first-connector
 curl -X POST -H "Content-Type: application/json" --data @connectors/update-first-connector.json http://localhost:8083/connectors
 ```
 
-Visit **Kafdrop** (http://localhost:9000) and look for:
-- `debezium.sqlserver.SaleDB.dbo.Customers` - Customers table changes (with operation "c")
+Visit **kafka-ui** (http://localhost:8080/) and look for:
+- `debezium.sqlserver.SaleDB.dbo.customers` - customers table changes (with operation "c")
 
 ### Test 6: Schema evolution
 
 ``` sql
 -- Alter table add new column
-ALTER TABLE Customers ADD PhoneNumber NVARCHAR(20) NULL;
+ALTER TABLE customers ADD PhoneNumber NVARCHAR(20) NULL;
 
 -- Create new capture instance
 EXEC sys.sp_cdc_enable_table 
     @source_schema = 'dbo',
-    @source_name = 'Customers', 
+    @source_name = 'customers', 
     @role_name = NULL, 
     @supports_net_changes = 0, 
     @capture_instance = 'dbo_customers_v2';
 
 -- Insert sample data
-INSERT INTO Customers (FirstName, LastName, PhoneNumber) VALUES
+INSERT INTO customers (FirstName, LastName, PhoneNumber) VALUES
 ('Sara', 'Rose', '+66985567767');
 ```
 
@@ -532,35 +525,35 @@ docker logs -f debezium-kafka-connect
 
 and look for:
 ``` log
-2025-10-05T11:28:27,177 INFO   SQL_Server||streaming  Multiple capture instances present for the same table: Capture instance "dbo_Customers" [sourceTableId=SaleDB.dbo.Customers, changeTableId=SaleDB.cdc.dbo_Customers_CT, startLsn=0000002e:00000108:004c, changeTableObjectId=1909581841, stopLsn=0000002e:00001570:004d] and Capture instance "dbo_customers_v2" [sourceTableId=SaleDB.dbo.Customers, changeTableId=SaleDB.cdc.dbo_customers_v2_CT, startLsn=0000002e:00001570:004d, changeTableObjectId=1989582126, stopLsn=NULL]   [io.debezium.connector.sqlserver.SqlServerStreamingChangeEventSource]
+2025-10-05T11:28:27,177 INFO   SQL_Server||streaming  Multiple capture instances present for the same table: Capture instance "dbo_customers" [sourceTableId=SaleDB.dbo.customers, changeTableId=SaleDB.cdc.dbo_customers_CT, startLsn=0000002e:00000108:004c, changeTableObjectId=1909581841, stopLsn=0000002e:00001570:004d] and Capture instance "dbo_customers_v2" [sourceTableId=SaleDB.dbo.customers, changeTableId=SaleDB.cdc.dbo_customers_v2_CT, startLsn=0000002e:00001570:004d, changeTableObjectId=1989582126, stopLsn=NULL]   [io.debezium.connector.sqlserver.SqlServerStreamingChangeEventSource]
 
-2025-10-05T11:28:27,178 INFO   SQL_Server||streaming  Schema will be changed for Capture instance "dbo_customers_v2" [sourceTableId=SaleDB.dbo.Customers, changeTableId=SaleDB.cdc.dbo_customers_v2_CT, startLsn=0000002e:00001570:004d, changeTableObjectId=1989582126, stopLsn=NULL]   [io.debezium.connector.sqlserver.SqlServerStreamingChangeEventSource]
+2025-10-05T11:28:27,178 INFO   SQL_Server||streaming  Schema will be changed for Capture instance "dbo_customers_v2" [sourceTableId=SaleDB.dbo.customers, changeTableId=SaleDB.cdc.dbo_customers_v2_CT, startLsn=0000002e:00001570:004d, changeTableObjectId=1989582126, stopLsn=NULL]   [io.debezium.connector.sqlserver.SqlServerStreamingChangeEventSource]
 
-2025-10-05T11:28:27,178 INFO   SQL_Server||streaming  The stop lsn of Capture instance "dbo_Customers" [sourceTableId=SaleDB.dbo.Customers, changeTableId=SaleDB.cdc.dbo_Customers_CT, startLsn=0000002e:00000108:004c, changeTableObjectId=1909581841, stopLsn=0000002e:00001570:004d] change table became known   [io.debezium.connector.sqlserver.SqlServerStreamingChangeEventSource]
+2025-10-05T11:28:27,178 INFO   SQL_Server||streaming  The stop lsn of Capture instance "dbo_customers" [sourceTableId=SaleDB.dbo.customers, changeTableId=SaleDB.cdc.dbo_customers_CT, startLsn=0000002e:00000108:004c, changeTableObjectId=1909581841, stopLsn=0000002e:00001570:004d] change table became known   [io.debezium.connector.sqlserver.SqlServerStreamingChangeEventSource]
 
-2025-10-05T11:28:42,525 INFO   SQL_Server||streaming  Migrating schema to Capture instance "dbo_customers_v2" [sourceTableId=SaleDB.dbo.Customers, changeTableId=SaleDB.cdc.dbo_customers_v2_CT, startLsn=0000002e:00001570:004d, changeTableObjectId=1989582126, stopLsn=NULL]   [io.debezium.connector.sqlserver.SqlServerStreamingChangeEventSource]
+2025-10-05T11:28:42,525 INFO   SQL_Server||streaming  Migrating schema to Capture instance "dbo_customers_v2" [sourceTableId=SaleDB.dbo.customers, changeTableId=SaleDB.cdc.dbo_customers_v2_CT, startLsn=0000002e:00001570:004d, changeTableObjectId=1989582126, stopLsn=NULL]   [io.debezium.connector.sqlserver.SqlServerStreamingChangeEventSource]
 ```
 
 ### Test 7: 🤔 What happens if doesn't create new capture instance
 
 ``` sql
 -- Alter table add new column
-ALTER TABLE Customers ADD [Address] NVARCHAR(255) NULL;
+ALTER TABLE customers ADD [Address] NVARCHAR(255) NULL;
 
 -- Insert sample data
-INSERT INTO Customers (FirstName, LastName, PhoneNumber, [Address]) VALUES
+INSERT INTO customers (FirstName, LastName, PhoneNumber, [Address]) VALUES
 ('Lulu', 'Lala', '+66827762213', 'Bangkok');
 ```
 
-Visit **Kafdrop** (http://localhost:9000) and look for:
-- `debezium.sqlserver.SaleDB.dbo.Customers` - Customers table changes (with operation "c")
+Visit **kafka-ui** (http://localhost:8080/) and look for:
+- `debezium.sqlserver.SaleDB.dbo.customers` - customers table changes (with operation "c")
 - But address is missing
 
 ``` sql
 -- Create new capture instance
 EXEC sys.sp_cdc_enable_table 
     @source_schema = 'dbo',
-    @source_name = 'Customers', 
+    @source_name = 'customers', 
     @role_name = NULL, 
     @supports_net_changes = 0, 
     @capture_instance = 'dbo_customers_v3';
@@ -568,29 +561,29 @@ EXEC sys.sp_cdc_enable_table
 -- Ops. we got error about limit of capture_instance
 -- Try to check Customer capture_instance
 SELECT * FROM cdc.change_tables
-WHERE capture_instance LIKE 'dbo_Customers%'
+WHERE capture_instance LIKE 'dbo_customers%'
 
 -- Disabled an old
 EXEC sys.sp_cdc_disable_table
     @source_schema = N'dbo',
-    @source_name = N'Customers',
-    @capture_instance = N'dbo_Customers';
+    @source_name = N'customers',
+    @capture_instance = N'dbo_customers';
 
 -- Now we create new capture instance again
 EXEC sys.sp_cdc_enable_table 
     @source_schema = 'dbo',
-    @source_name = 'Customers', 
+    @source_name = 'customers', 
     @role_name = NULL, 
     @supports_net_changes = 0, 
     @capture_instance = 'dbo_customers_v3';
 
 -- Insert sample data
-INSERT INTO Customers (FirstName, LastName, PhoneNumber, [Address]) VALUES
+INSERT INTO customers (FirstName, LastName, PhoneNumber, [Address]) VALUES
 ('Lady', 'Gaga', '+66827769988', 'Phuket');
 ```
 
-Visit **Kafdrop** (http://localhost:9000) and look for:
-- `debezium.sqlserver.SaleDB.dbo.Customers` - Customers table changes (with operation "c")
+Visit **kafka-ui** (http://localhost:8080/) and look for:
+- `debezium.sqlserver.SaleDB.dbo.customers` - customers table changes (with operation "c")
 - Address is appear
 
 ---
@@ -619,7 +612,7 @@ Default Debezium messages include:
         "database.names": "SaleDB",
         "database.encrypt": "false",
         "topic.prefix": "debezium.sqlserver",
-        "table.include.list": "dbo.Products",
+        "table.include.list": "dbo.products",
         "schema.history.internal.kafka.bootstrap.servers": "kafka:29092",
         "schema.history.internal.kafka.topic": "schema-changes.debezium.tms",
         "decimal.handling.mode": "double",

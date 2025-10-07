@@ -9,7 +9,7 @@
         "database.names": "SaleDB",
         "database.encrypt": "false",
         "topic.prefix": "debezium.sqlserver",
-        "table.include.list": "dbo.Products", 
+        "table.include.list": "dbo.products", 
         "schema.history.internal.kafka.bootstrap.servers": "kafka:29092", 
         "schema.history.internal.kafka.topic": "schema-changes.sqlserver"
     }

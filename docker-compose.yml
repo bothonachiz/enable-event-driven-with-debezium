@@ -1,49 +1,51 @@
 version: '3.1'
 services:
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.4.0
-    hostname: zookeeper
-    container_name: zookeeper
-    ports:
-      - "2181:2181"
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    networks:
-      - enable-event-driven-network
-
   kafka:
     image: confluentinc/cp-kafka:7.4.0
     hostname: kafka
     container_name: kafka
-    depends_on:
-      - zookeeper
     ports:
       - "9092:9092"
-      - "9101:9101"
+      - "9093:9093"
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_JMX_PORT: 9101
       KAFKA_JMX_HOSTNAME: localhost
+      # KRaft mode configuration
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_NODE_ID: 1
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:9093'
+      KAFKA_LISTENERS: PLAINTEXT://kafka:9092,CONTROLLER://kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+      # Reduce metadata logging verbosity
+      KAFKA_LOG4J_LOGGERS: "org.apache.kafka.metadata.MetadataLoader=WARN,org.apache.kafka.controller=WARN"
+      KAFKA_LOG4J_ROOT_LOGLEVEL: INFO
+    # volumes:
+    #   - ./kafka-data:/tmp/kraft-combined-logs
     networks:
       - enable-event-driven-network
 
-  kafdrop:
-    image: obsidiandynamics/kafdrop
-    container_name: kafdrop
-    ports:
-      - 9000:9000
-    environment:
-      KAFKA_BROKERCONNECT: 'kafka:29092'
+  kafka-ui:
+    image: kafbat/kafka-ui:latest
+    container_name: kafka-ui
+    restart: unless-stopped
     depends_on:
       - kafka
+    ports:
+      - "8080:8080"
+    environment:
+      DYNAMIC_CONFIG_ENABLED: 'true'
+      KAFKA_CLUSTERS_0_NAME: kafka-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL: PLAINTEXT
     networks:
       - enable-event-driven-network
 
@@ -58,8 +60,8 @@ services:
       SA_PASSWORD: Passw0rd
       MSSQL_PID: Developer
       MSSQL_AGENT_ENABLED: true # Important for Debezium SQL Server connector
-    volumes:
-      - ./mssql-data:/var/opt/mssql
+    # volumes:
+    #   - ./mssql-data:/var/opt/mssql
     networks:
       - enable-event-driven-network
   
@@ -69,7 +71,7 @@ services:
     ports:
       - 8083:8083
     environment:
-      BOOTSTRAP_SERVERS: 'kafka:29092'
+      BOOTSTRAP_SERVERS: 'kafka:9092'
       GROUP_ID: 1
       CONFIG_STORAGE_TOPIC: 'enable_event_driven_connect_configs'
       OFFSET_STORAGE_TOPIC: 'enable_event_driven_connect_offsets'

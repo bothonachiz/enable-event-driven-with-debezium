@@ -6,13 +6,13 @@ USE SaleDB;
 GO
 
 -- Create example table
-CREATE TABLE Products (
-    Id INT PRIMARY KEY IDENTITY(1,1),
-    ProductName NVARCHAR(100) NOT NULL,
-    Price DECIMAL(10, 2) NOT NULL,
-    Note NVARCHAR(100) NULL,
-    CreatedAt DATETIME DEFAULT GETDATE(),
-    UpdatedAt DATETIME DEFAULT GETDATE()
+CREATE TABLE products (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    product_name NVARCHAR(100) NOT NULL,
+    price DECIMAL(10, 2) NOT NULL,
+    note NVARCHAR(100) NULL,
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE()
 );
 GO
 
@@ -34,16 +34,16 @@ GO
 EXEC sys.sp_cdc_enable_db;
 GO
 
--- Enable CDC on the Products table
+-- Enable CDC on the products table
 EXEC sys.sp_cdc_enable_table
     @source_schema = N'dbo',
-    @source_name = N'Products',
+    @source_name = N'products',
     @role_name = NULL,
     @supports_net_changes = 0;
 GO
 
 -- Insert some sample data
-INSERT INTO Products (ProductName, Price, Note) VALUES 
+INSERT INTO products (product_name, price, note) VALUES 
 ('Product A', 10.00, NULL),
 ('Product B', 20.00, NULL),
 ('Product C', 30.00, 'pre-order item');
