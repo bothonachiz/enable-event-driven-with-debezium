@@ -2,10 +2,9 @@
 USE SaleDB;
 GO
 
-
 -- Insert example data #1
-DECLARE @sale_order_id INT;
 BEGIN TRANSACTION;
+DECLARE @sale_order_id INT;
 
 INSERT INTO sale_orders
     (sale_order_number, customer, total_price, total_items)
@@ -37,17 +36,17 @@ SELECT
         so.total_items,
         so.is_cancelled,
         (
-                SELECT
-            soi.id,
-            soi.sale_order_item_number,
-            soi.sku,
-            soi.quantity,
-            soi.unit_price,
-            soi.total_price
-        FROM sale_order_items soi
-        WHERE soi.sale_order_id = so.id
-        FOR JSON PATH
-            ) AS items
+            SELECT
+                soi.id,
+                soi.sale_order_item_number,
+                soi.sku,
+                soi.quantity,
+                soi.unit_price,
+                soi.total_price
+            FROM sale_order_items soi
+            WHERE soi.sale_order_id = so.id
+            FOR JSON PATH
+        ) AS items
     FROM sale_orders so
     WHERE so.id = @sale_order_id
     FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
