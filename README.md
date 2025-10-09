@@ -619,7 +619,6 @@ Default Debezium messages include:
         "transforms": "RemoveSourceField",
         "transforms.RemoveSourceField.type": "org.apache.kafka.connect.transforms.ReplaceField$Value",
         "transforms.RemoveSourceField.exclude": "source",
-        "transforms.RemoveSourceField.include": "source.table",
 
         "key.converter": "org.apache.kafka.connect.json.JsonConverter",
         "key.converter.schemas.enable": "false",
