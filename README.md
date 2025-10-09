@@ -138,8 +138,7 @@ docker exec mssql-server /opt/mssql-tools18/bin/sqlcmd -S localhost -U debezium_
 
 ## 📡 Step 2: Kafka Infrastructure
 
-### Start Zookeeper & Kafka
-
+### Start Kafka
 
 ``` bash
 # Start Kafka infrastructure
@@ -254,7 +253,6 @@ NAMES                    STATUS              PORTS
 debezium-kafka-connect   Up 2 minutes   8778/tcp, 0.0.0.0:8083->8083/tcp, 9092/tcp
 kafdrop                  Up 3 minutes   0.0.0.0:9000->9000/tcp
 kafka                    Up 5 minutes   0.0.0.0:9092->9092/tcp, 0.0.0.0:9101->9101/tcp
-zookeeper                Up 5 minutes   2888/tcp, 0.0.0.0:2181->2181/tcp, 3888/tcp
 mssql-server             Up 7 minutes   0.0.0.0:1433->1433/tcp
 ```
 
