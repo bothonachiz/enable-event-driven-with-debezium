@@ -609,15 +609,17 @@ Default Debezium messages include:
         "database.password": "Debezium@123",
         "database.names": "SaleDB",
         "database.encrypt": "false",
-        "topic.prefix": "debezium.sqlserver",
-        "table.include.list": "dbo.products",
+        "table.include.list": "dbo.products,dbo.customers",
         "schema.history.internal.kafka.bootstrap.servers": "kafka:9092",
         "schema.history.internal.kafka.topic": "schema-changes.debezium.tms",
         "decimal.handling.mode": "double",
 
+        "topic.prefix": "debezium.v2.sqlserver",
+
         "transforms": "RemoveSourceField",
         "transforms.RemoveSourceField.type": "org.apache.kafka.connect.transforms.ReplaceField$Value",
         "transforms.RemoveSourceField.exclude": "source",
+        "transforms.RemoveSourceField.include": "source.table",
 
         "key.converter": "org.apache.kafka.connect.json.JsonConverter",
         "key.converter.schemas.enable": "false",
