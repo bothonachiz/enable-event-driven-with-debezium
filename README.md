@@ -143,7 +143,7 @@ docker exec mssql-server /opt/mssql-tools18/bin/sqlcmd -S localhost -U debezium_
 
 ``` bash
 # Start Kafka infrastructure
-docker compose up --build -d zookeeper kafka
+docker compose up --build -d kafka
 
 # Verify containers are running
 docker ps
