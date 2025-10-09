@@ -469,8 +469,8 @@ Visit **kafka-ui** again (http://localhost:8080/) and look for:
 -- Create new table customers
 CREATE TABLE customers (
     id INT PRIMARY KEY IDENTITY(1,1),
-    FirstName NVARCHAR(50) NOT NULL,
-    LastName NVARCHAR(50) NOT NULL,
+    first_name NVARCHAR(50) NOT NULL,
+    last_name NVARCHAR(50) NOT NULL,
     created_at DATETIME DEFAULT GETDATE(),
     updated_at DATETIME DEFAULT GETDATE()
 );
@@ -481,7 +481,7 @@ EXEC sys.sp_cdc_enable_table
     @role_name = NULL,
     @supports_net_changes = 0;
 
-INSERT INTO customers (FirstName, LastName) VALUES
+INSERT INTO customers (first_name, last_name) VALUES
 ('John', 'Doe'),
 ('Anna', 'Smith')
 ```
@@ -512,7 +512,7 @@ EXEC sys.sp_cdc_enable_table
     @capture_instance = 'dbo_customers_v2';
 
 -- Insert sample data
-INSERT INTO customers (FirstName, LastName, PhoneNumber) VALUES
+INSERT INTO customers (first_name, last_name, PhoneNumber) VALUES
 ('Sara', 'Rose', '+66985567767');
 ```
 
@@ -536,10 +536,10 @@ and look for:
 
 ``` sql
 -- Alter table add new column
-ALTER TABLE customers ADD [Address] NVARCHAR(255) NULL;
+ALTER TABLE customers ADD [address] NVARCHAR(255) NULL;
 
 -- Insert sample data
-INSERT INTO customers (FirstName, LastName, PhoneNumber, [Address]) VALUES
+INSERT INTO customers (first_name, last_name, phone_number, [address]) VALUES
 ('Lulu', 'Lala', '+66827762213', 'Bangkok');
 ```
 
@@ -576,7 +576,7 @@ EXEC sys.sp_cdc_enable_table
     @capture_instance = 'dbo_customers_v3';
 
 -- Insert sample data
-INSERT INTO customers (FirstName, LastName, PhoneNumber, [Address]) VALUES
+INSERT INTO customers (first_name, last_name, phone_number, [address]) VALUES
 ('Lady', 'Gaga', '+66827769988', 'Phuket');
 ```
 
