@@ -249,11 +249,11 @@ docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
 **Expected Output:**
 ```
-NAMES                    STATUS              PORTS
-debezium-kafka-connect   Up 2 minutes   8778/tcp, 0.0.0.0:8083->8083/tcp, 9092/tcp
-kafdrop                  Up 3 minutes   0.0.0.0:9000->9000/tcp
-kafka                    Up 5 minutes   0.0.0.0:9092->9092/tcp, 0.0.0.0:9101->9101/tcp
-mssql-server             Up 7 minutes   0.0.0.0:1433->1433/tcp
+NAMES                    STATUS       PORTS
+debezium-kafka-connect   Up 2 hours   8778/tcp, 0.0.0.0:8083->8083/tcp, 9092/tcp
+kafka-ui                 Up 3 hours   0.0.0.0:8080->8080/tcp
+kafka                    Up 3 hours   0.0.0.0:9092-9093->9092-9093/tcp
+mssql-server             Up 3 hours   0.0.0.0:1433->1433/tcp
 ```
 
 ### Service Health Checks
@@ -292,7 +292,7 @@ curl -s http://localhost:8080/ | grep -q "Kafbat"
         "database.encrypt": "false",
         "topic.prefix": "debezium.sqlserver",
         "table.include.list": "dbo.products", 
-        "schema.history.internal.kafka.bootstrap.servers": "kafka:29092", 
+        "schema.history.internal.kafka.bootstrap.servers": "kafka:9092", 
         "schema.history.internal.kafka.topic": "schema-changes.sqlserver"
     }
 }
@@ -337,7 +337,7 @@ curl -s http://localhost:8080/ | grep -q "Kafbat"
 
 ### Schema Management
 ```json
-"schema.history.internal.kafka.bootstrap.servers": "kafka:29092", 
+"schema.history.internal.kafka.bootstrap.servers": "kafka:9092", 
 "schema.history.internal.kafka.topic": "schema-changes.sqlserver"
 ```
 - **Purpose**: Tracks database schema evolution
@@ -611,7 +611,7 @@ Default Debezium messages include:
         "database.encrypt": "false",
         "topic.prefix": "debezium.sqlserver",
         "table.include.list": "dbo.products",
-        "schema.history.internal.kafka.bootstrap.servers": "kafka:29092",
+        "schema.history.internal.kafka.bootstrap.servers": "kafka:9092",
         "schema.history.internal.kafka.topic": "schema-changes.debezium.tms",
         "decimal.handling.mode": "double",
 
