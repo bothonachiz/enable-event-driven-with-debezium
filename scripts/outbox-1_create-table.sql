@@ -1,15 +1,7 @@
--- Create database
-IF NOT EXISTS (SELECT *
-FROM sys.databases
-WHERE name = 'SaleDB')
-BEGIN
-    CREATE DATABASE SaleDB;
-END;
-GO
+-- Introduce to Outbox Pattern, Step 1 - Create Outbox table
 
 -- Change database
 USE SaleDB;
-GO
 
 -- Create the outbox table
 CREATE TABLE outbox
@@ -21,7 +13,6 @@ CREATE TABLE outbox
     payload NVARCHAR(MAX) NOT NULL,
     timestamp DATETIME2 DEFAULT GETDATE()
 );
-GO
 
 -- Create sale order table
 CREATE TABLE sale_orders
@@ -33,7 +24,6 @@ CREATE TABLE sale_orders
     total_items INT NOT NULL,
     is_cancelled BIT DEFAULT 0
 );
-GO
 
 -- Create sale order item table
 CREATE TABLE sale_order_items
@@ -47,7 +37,6 @@ CREATE TABLE sale_order_items
     total_price DECIMAL(10, 2) NOT NULL,
     FOREIGN KEY (sale_order_id) REFERENCES sale_orders(id)
 );
-GO
 
 -- Enable CDC on the Outbox table
 EXEC sys.sp_cdc_enable_table
@@ -55,4 +44,3 @@ EXEC sys.sp_cdc_enable_table
     @source_name = N'outbox',
     @role_name = NULL,
     @supports_net_changes = 0;
-GO

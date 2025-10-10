@@ -1,23 +1,24 @@
+-- Introduce to Outbox Pattern, Step 2 - First outbox insertion
+
 -- Change database
 USE SaleDB;
-GO
 
--- Insert example data #2
+-- Insert example data #1
 BEGIN TRANSACTION;
 DECLARE @sale_order_id INT;
 
 INSERT INTO sale_orders
     (sale_order_number, customer, total_price, total_items)
 VALUES
-    ('SO2503000212', 'Jane Marie', 300.00, 3);
+    ('SO2503000211', 'John Doe', 200.00, 4);
 
 SET @sale_order_id = SCOPE_IDENTITY();
 
 INSERT INTO sale_order_items
     (sale_order_id, sale_order_item_number, sku, quantity, unit_price, total_price)
 VALUES
-    (@sale_order_id, 'SO2503000212-01', 'SKU-003', 2, 100.00, 200.00),
-    (@sale_order_id, 'SO2503000212-02', 'SKU-004', 1, 100.00, 100.00);
+    (@sale_order_id, 'SO2503000211-01', 'SKU-001', 1, 50.00, 50.00),
+    (@sale_order_id, 'SO2503000211-02', 'SKU-002', 3, 50.00, 150.00);
 
 -- Create nested JSON with items as array
 INSERT INTO outbox
@@ -53,4 +54,3 @@ SELECT
     );
 
 COMMIT TRANSACTION;
-GO

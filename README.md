@@ -68,10 +68,8 @@ docker logs mssql-server -f
 ```sql
 -- Create sample database SaleDB
 CREATE DATABASE SaleDB;
-GO
 
 USE SaleDB;
-GO
 
 -- Create example table
 CREATE TABLE products (
@@ -82,25 +80,19 @@ CREATE TABLE products (
     created_at DATETIME DEFAULT GETDATE(),
     updated_at DATETIME DEFAULT GETDATE()
 );
-GO
 
 -- Create a dedicated user for Debezium
 CREATE LOGIN debezium_user WITH PASSWORD = 'Debezium@123';
-GO
 
 CREATE USER debezium_user FOR LOGIN debezium_user;
-GO
 
 -- Grant necessary permissions to the Debezium user
 ALTER ROLE db_owner ADD MEMBER debezium_user;
-GO
 
 USE SaleDB;
-GO
 
 -- Enable CDC on the database
 EXEC sys.sp_cdc_enable_db;
-GO
 
 -- Enable CDC on the products table
 EXEC sys.sp_cdc_enable_table
@@ -108,14 +100,12 @@ EXEC sys.sp_cdc_enable_table
     @source_name = N'products',
     @role_name = NULL,
     @supports_net_changes = 0;
-GO
 
 -- Insert some sample data
 INSERT INTO products (product_name, price, note) VALUES 
 ('Product A', 10.00, NULL),
 ('Product B', 20.00, NULL),
 ('Product C', 30.00, 'pre-order item');
-GO
 ```
 
 ### Verify Database Setup
@@ -689,3 +679,223 @@ curl -i -X DELETE http://localhost:8083/connectors/first-connector
 ```
 
 ---
+
+## 🎯 Event-Driven Architecture with Debezium Outbox Pattern
+
+### What is the Outbox Pattern?
+
+The Outbox Pattern is a design pattern that ensures reliable publishing of events as part of a database transaction. Instead of directly publishing events to a message broker (which could fail), you store events in an "outbox" table within the same database transaction as your business data. A separate process (Debezium in our case) then reads from this outbox table and publishes events to Kafka.
+
+#### Benefits:
+- **Transactional guarantee**: Events are stored atomically with business data
+- **At-least-once delivery**: Debezium ensures events are eventually published
+- **Decoupling**: Services don't need direct dependencies on message brokers
+- **Resilience**: Survives temporary message broker outages
+
+### Event Flow Architecture
+```
+[Application] → [Database Transaction] → [Outbox Table] → [Debezium] → [Kafka Topics]
+     ↓              ↓                      ↓                 ↓             ↓
+ Business       Save Order +           Event Record    CDC Capture     Event Published
+ Operation      Save Event             Stored          & Transform      to Consumers
+```
+
+---
+
+### 📦 Step 8: Basic Outbox Pattern Implementation
+
+### Database Setup - Basic Outbox Tables
+**File: `scripts/outbox-1_create-table.sql`**
+
+```sql
+USE SaleDB;
+
+-- Create sale orders table
+CREATE TABLE sale_orders (
+    order_id VARCHAR(50) PRIMARY KEY,
+    customer_id VARCHAR(50) NOT NULL,
+    total_amount DECIMAL(10, 2) NOT NULL,
+    order_date DATETIME DEFAULT GETDATE()
+);
+
+-- Create sale order items table  
+CREATE TABLE sale_order_items (
+    item_id INT PRIMARY KEY IDENTITY(1,1),
+    order_id VARCHAR(50) NOT NULL,
+    product_name VARCHAR(100) NOT NULL,
+    quantity INT NOT NULL,
+    price DECIMAL(10, 2) NOT NULL,
+    FOREIGN KEY (order_id) REFERENCES sale_orders(order_id)
+);
+
+-- Create outbox table for events
+CREATE TABLE outbox (
+    id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    aggregatetype VARCHAR(255) NOT NULL,
+    aggregateid VARCHAR(255) NOT NULL,
+    [type] VARCHAR(255) NOT NULL,
+    payload NVARCHAR(MAX)
+);
+
+-- Enable CDC on outbox table
+EXEC sys.sp_cdc_enable_table
+    @source_schema = N'dbo',
+    @source_name = N'outbox',
+    @role_name = NULL,
+    @supports_net_changes = 0;
+```
+
+### Basic Outbox Connector Configuration
+**File: `connectors/outbox-event-router-connector-v1.json`**
+
+```json
+{
+    "name": "outbox-event-router-connector-v1",
+    "config": {
+        "connector.class": "io.debezium.connector.sqlserver.SqlServerConnector",
+        "database.hostname": "mssql-server",
+        "database.port": "1433",
+        "database.user": "debezium_user",
+        "database.password": "Debezium@123",
+        "database.names": "SaleDB",
+        "database.encrypt": "false",
+        "table.include.list": "dbo.outbox",
+        "schema.history.internal.kafka.bootstrap.servers": "kafka:9092",
+        "schema.history.internal.kafka.topic": "schema-changes.debezium.outbox",
+        "decimal.handling.mode": "double",
+
+        "topic.prefix": "debezium.v3.sqlserver",
+
+        "transforms": "outbox",
+        "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
+        "transforms.outbox.table.expand.json.payload": "true",
+
+        "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "key.converter.schemas.enable": "false",
+        "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "value.converter.schemas.enable": "false"
+    }
+}
+```
+
+### 🔧 Outbox Configuration Parameters Explained
+
+```json
+"transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter"
+```
+- **Purpose**: Converts outbox records into proper Kafka events
+- **Function**: Transforms CDC events into business events
+
+```json
+"transforms.outbox.table.expand.json.payload": "true"
+```
+- **Purpose**: Expands JSON payload into event structure
+- **Result**: Clean business event format instead of raw outbox record
+
+### Deploy Basic Outbox Connector
+```bash
+# Deploy the basic outbox connector
+curl -X POST -H "Content-Type: application/json" --data @connectors/outbox-event-router-connector-v1.json http://localhost:8083/connectors
+```
+
+### Test Basic Outbox Pattern
+**File: `connectors/outbox-2_first-insertion.sql`**
+
+---
+
+### 🚀 Step 9: Advanced Outbox Pattern - Dynamic Topic Routing
+
+### Enhanced Database Schema
+**File: `scripts/outbox-3_update-table.sql`**
+
+```sql
+USE SaleDB;
+
+-- Alter table add new column
+ALTER TABLE outbox ADD event_topic NVARCHAR(50) NOT NULL DEFAULT '';
+
+-- Create new capture instance
+EXEC sys.sp_cdc_enable_table 
+    @source_schema = 'dbo',
+    @source_name = 'outbox', 
+    @role_name = NULL, 
+    @supports_net_changes = 0, 
+    @capture_instance = 'dbo_outbox_v2';
+```
+
+### Advanced Outbox Connector Configuration
+**File: `connectors/outbox-event-router-connector-v2.json`**
+
+```json
+{
+    "name": "outbox-event-router-connector-v2",
+    "config": {
+        "connector.class": "io.debezium.connector.sqlserver.SqlServerConnector",
+        "database.hostname": "mssql-server",
+        "database.port": "1433",
+        "database.user": "debezium_user",
+        "database.password": "Debezium@123",
+        "database.names": "SaleDB",
+        "database.encrypt": "false",
+        "table.include.list": "dbo.outbox",
+        "schema.history.internal.kafka.bootstrap.servers": "kafka:9092",
+        "schema.history.internal.kafka.topic": "schema-changes.debezium.tms",
+        "decimal.handling.mode": "double",
+
+        "topic.prefix": "debezium.v4.sqlserver",
+
+        "transforms": "outbox",
+        "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
+        "transforms.outbox.table.expand.json.payload": "true",
+        "transforms.outbox.route.by.field": "event_topic",
+        "transforms.outbox.route.topic.replacement": "${routedByValue}.events",
+        "transforms.outbox.table.fields.additional.placement": "type:header:eventType",
+
+        "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "key.converter.schemas.enable": "false",
+        "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+        "value.converter.schemas.enable": "false"
+    }
+}
+```
+
+### 🔧 Advanced Configuration Parameters
+
+```json
+"transforms.outbox.route.by.field": "event_topic"
+```
+- **Purpose**: Field to determine target Kafka topic
+- **Dynamic**: Each event can go to different topics
+
+```json
+"transforms.outbox.route.topic.replacement": "${routedByValue}.events"
+```
+- **Purpose**: Topic naming pattern using field value
+- **Example**: `event_topic='orders'` → `orders.events`
+
+```json
+"transforms.outbox.table.fields.additional.placement": "type:header:eventType"
+```
+- **Purpose**: Adds event type to Kafka message headers
+- **Benefit**: Consumers can filter by event type
+
+### Deploy Advanced Connector
+```bash
+# Remove old connector first
+curl -X DELETE http://localhost:8083/connectors/outbox-event-router-connector-v1
+
+# Deploy advanced connector
+curl -X POST -H "Content-Type: application/json" --data @connectors/outbox-event-router-connector-v2.json http://localhost:8083/connectors
+```
+
+### Test Dynamic Topic Routing
+**File: `outbox-4_third-insertion.sql`**
+
+---
+
+## 📚 Additional Resources
+
+- [Debezium Documentation](https://debezium.io/documentation/)
+- [Outbox Pattern](https://microservices.io/patterns/data/transactional-outbox.html)
+- [Kafka Connect Transforms](https://kafka.apache.org/documentation/#connect_transforms)
+- [SQL Server CDC](https://docs.microsoft.com/en-us/sql/relational-databases/track-changes/about-change-data-capture-sql-server)
